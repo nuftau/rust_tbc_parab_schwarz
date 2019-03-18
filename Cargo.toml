@@ -1,0 +1,10 @@
+[package]
+name = "rust_tbc_parab_schwarz"
+version = "0.1.0"
+authors = ["Simon Clément <simon.clement@grenoble-inp.org>"]
+edition = "2018"
+
+[dependencies]
+lapack = "0.16"
+openblas-src = "0.5"
+ndarray = "0.12"
