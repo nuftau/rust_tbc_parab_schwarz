@@ -4,7 +4,20 @@ version = "0.1.0"
 authors = ["Simon Clément <simon.clement@grenoble-inp.org>"]
 edition = "2018"
 
+[lib]
+name = "rust_rate_constant"
+crate-type = ["dylib"]
+
 [dependencies]
 lapack = "0.16"
-openblas-src = "0.5"
+openblas-src = "0.7"
+rand = "0.6"
+rand_core = "0.4"
+rand_xorshift = "0.1"
 ndarray = "0.12"
+ndarray-rand = "0.9"
+rayon = "1.0"
+
+[dependencies.cpython]
+version = "0.2"
+features = ["extension-module"]
