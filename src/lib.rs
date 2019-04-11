@@ -19,15 +19,55 @@ use rand::distributions::uniform::Uniform;
 
 #[cfg(test)]
 mod tests {
-    use crate::{Discretization, rate_rust};
+    use crate::{Discretization, rate_rust_cst};
     #[test]
     fn test_rate() {
-        println!("différences finies: {}", rate_rust(150, 3., 0., 0., 1e-10, 0.1, 400, 400,
+        println!("différences finies: {}", rate_rust_cst(150, 3., 0., 0., 1e-10, 0.1, 400, 400,
              -0.50125313, 0.50125313, 0.6, 0.54, Discretization::FiniteDifferences,
              100));
-        println!("volumes finis: {}", rate_rust(1, 3., 0., 0., 1e-10, 0.1, 400, 400,
+        println!("volumes finis: {}", rate_rust_cst(1, 3., 0., 0., 1e-10, 0.1, 400, 400,
              0.5, 0.5, 0.6, 0.54, Discretization::FiniteVolumes, 1));
         assert_eq!(3, 2+2 );
+    }
+}
+
+pub unsafe fn construct_array_1d(input: *mut f64, num_elems: usize) -> Array1<f64> {
+    // Create a Rust `Vec` associated with a `numpy` array via the raw pointer. This is unsafe in Rust parlance
+    // because Rust can't verify that the pointer actually points to legitimate memory, so to speak.
+    // At least check that the pointer is not null.
+    assert!(!input.is_null());
+    Array1::from_vec(Vec::from_raw_parts(input, num_elems, num_elems))
+}
+
+#[allow(non_snake_case)]
+/// Note: we won't be able to verify the size of h and D...
+fn rate(_py: Python, time_window_len : usize, Lambda_1 : f64,
+                    Lambda_2 : f64, a : f64, c : f64, dt : f64,
+                    M1 : usize, M2 : usize, h1 : *mut f64, h2 : *mut f64,
+                    D1 : *mut f64, D2 : *mut f64, is_finite_differences : bool,
+                    number_samples : usize) -> PyResult<f64> {
+
+    let dis = match is_finite_differences {
+        true => Discretization::FiniteDifferences,
+        false => Discretization::FiniteVolumes
+    };
+    let sizes = match dis {
+        Discretization::FiniteDifferences =>(M1-1, M2-1, M1-1, M2-1),
+        Discretization::FiniteVolumes => (M1, M2, M1+1, M2+1),
+    };
+
+    unsafe {
+        let h1a = construct_array_1d(h1, sizes.0);
+        let h2a = construct_array_1d(h2, sizes.1);
+        let D1a = construct_array_1d(D1, sizes.2);
+        let D2a = construct_array_1d(D2, sizes.3);
+
+        Ok(rate_rust(time_window_len, Lambda_1, Lambda_2, a, c, dt,
+             M1, M2, h1a, h2a, D1a, D2a, 
+             match is_finite_differences {
+                 true => Discretization::FiniteDifferences,
+                 false => Discretization::FiniteVolumes},
+                 number_samples))
     }
 }
 
@@ -37,12 +77,12 @@ pub enum Discretization {
 }
 
 #[allow(non_snake_case)]
-fn rate(_py: Python, time_window_len : usize, Lambda_1 : f64,
+fn rate_cst(_py: Python, time_window_len : usize, Lambda_1 : f64,
                     Lambda_2 : f64, a : f64, c : f64, dt : f64,
                     M1 : usize, M2 : usize, h1 : f64, h2 : f64,
                     D1 : f64, D2 : f64, is_finite_differences : bool,
                     number_samples : usize) -> PyResult<f64> {
-    Ok(rate_rust(time_window_len, Lambda_1, Lambda_2, a, c, dt,
+    Ok(rate_rust_cst(time_window_len, Lambda_1, Lambda_2, a, c, dt,
          M1, M2, h1, h2, D1, D2, 
          match is_finite_differences {
              true => Discretization::FiniteDifferences,
@@ -55,10 +95,15 @@ fn rate(_py: Python, time_window_len : usize, Lambda_1 : f64,
 py_module_initializer!(librust_rate_constant, initlibrust_rate_constant,
                        PyInit_librust_rate_constant, |py, m| {
     m.add(py, "__doc__", "This module is the function rate implemented in Rust.")?;
-    m.add(py, "rate", py_fn!(py, rate(time_window_len : usize, Lambda_1 : f64,
+    m.add(py, "rate_cst", py_fn!(py, rate_cst(time_window_len : usize, Lambda_1 : f64,
                     Lambda_2 : f64, a : f64, c : f64, dt : f64,
                     M1 : usize, M2 : usize, h1 : f64, h2 : f64,
                     D1 : f64, D2 : f64, is_finite_differences : bool,
+                    number_samples : usize)))?;
+    m.add(py, "rate", py_fn!(py, rate_cst(time_window_len : usize, Lambda_1 : f64,
+                    Lambda_2 : f64, a : f64, c : f64, dt : f64,
+                    M1 : usize, M2 : usize, h1 : *mut f64, h2 : *mut f64,
+                    D1 : *mut f64, D2 : *mut f64, is_finite_differences : bool,
                     number_samples : usize)))?;
     Ok(())
 });
@@ -67,18 +112,11 @@ py_module_initializer!(librust_rate_constant, initlibrust_rate_constant,
 #[allow(non_snake_case)]
 pub fn rate_rust(time_window_len : usize, Lambda_1 : f64,
                     Lambda_2 : f64, a : f64, c : f64, dt : f64,
-                    M1 : usize, M2 : usize, h1 : f64, h2 : f64,
-                    D1 : f64, D2 : f64, dis : Discretization,
+                    M1 : usize, M2 : usize, h1 : Array1<f64>, h2 : Array1<f64>,
+                    D1 : Array1<f64>, D2 : Array1<f64>, dis : Discretization,
                     number_samples : usize) -> f64 {
     use crate::utils::linalg::norm;
-    let sizes = match dis {
-        Discretization::FiniteDifferences =>(M1-1, M2-1, M1-1, M2-1),
-        Discretization::FiniteVolumes => (M1, M2, M1+1, M2+1),
-    };
-    let h1 = Array::from_elem(sizes.0, h1);
-    let h2 = Array::from_elem(sizes.1, h2);
-    let D1 = Array::from_elem(sizes.2, D1);
-    let D2 = Array::from_elem(sizes.3, D2);
+
     let ret : f64 = match dis {
         Discretization::FiniteVolumes =>
     (1..number_samples+1).collect::<Vec<usize>>().par_iter()
@@ -97,6 +135,25 @@ pub fn rate_rust(time_window_len : usize, Lambda_1 : f64,
     };
     ret / number_samples as f64
 }
+
+#[allow(non_snake_case)]
+pub fn rate_rust_cst(time_window_len : usize, Lambda_1 : f64,
+                    Lambda_2 : f64, a : f64, c : f64, dt : f64,
+                    M1 : usize, M2 : usize, h1 : f64, h2 : f64,
+                    D1 : f64, D2 : f64, dis : Discretization,
+                    number_samples : usize) -> f64 {
+    let sizes = match dis {
+        Discretization::FiniteDifferences =>(M1-1, M2-1, M1-1, M2-1),
+        Discretization::FiniteVolumes => (M1, M2, M1+1, M2+1),
+    };
+    let h1 = Array::from_elem(sizes.0, h1);
+    let h2 = Array::from_elem(sizes.1, h2);
+    let D1 = Array::from_elem(sizes.2, D1);
+    let D2 = Array::from_elem(sizes.3, D2);
+    rate_rust(time_window_len, Lambda_1, Lambda_2, a, c, dt, M1, M2, h1, 
+              h2, D1, D2, dis, number_samples)
+}
+
 
 #[allow(non_snake_case)]
 fn interface_errors<T>(time_window_len : usize, seed : u64, Lambda_1 : f64,
