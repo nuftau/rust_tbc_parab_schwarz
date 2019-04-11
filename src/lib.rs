@@ -48,6 +48,39 @@ pub extern fn rate(time_window_len : usize, Lambda_1 : f64,
     }
 }
 
+
+#[allow(non_snake_case)]
+/// Note: we won't be able to verify the size of h and D...
+#[no_mangle]
+pub extern fn full_interface_err(time_window_len : usize, Lambda_1 : f64,
+                    Lambda_2 : f64, a : f64, c : f64, dt : f64,
+                    M1 : usize, M2 : usize, h1 : *const f64, h2 : *const f64,
+                    D1 : *const f64, D2 : *const f64, is_finite_differences : i32,
+                    number_samples : usize) -> *const f64 {
+
+    let dis = match is_finite_differences {
+        1 => Discretization::FiniteDifferences,
+        0 => Discretization::FiniteVolumes,
+        _ => Discretization::FiniteDifferences
+    };
+    let sizes = match dis {
+        Discretization::FiniteDifferences =>(M1-1, M2-1, M1-1, M2-1),
+        Discretization::FiniteVolumes => (M1, M2, M1+1, M2+1),
+    };
+
+    unsafe {
+        let h1a = construct_array_1d(h1, sizes.0);
+        let h2a = construct_array_1d(h2, sizes.1);
+        let D1a = construct_array_1d(D1, sizes.2);
+        let D2a = construct_array_1d(D2, sizes.3);
+        let ret = interface_errors_rust_nosum(time_window_len, Lambda_1, Lambda_2, a, c, dt,
+                 M1, M2, h1a, h2a, D1a, D2a, dis, number_samples);
+        let ret_ptr = ret.as_ptr();
+        std::mem::forget(ret);
+        ret_ptr
+    }
+}
+
 #[allow(non_snake_case)]
 /// Note: we won't be able to verify the size of h and D...
 #[no_mangle]
@@ -126,6 +159,40 @@ pub fn interface_errors_rust(time_window_len : usize, Lambda_1 : f64,
     } else {
         panic!("error: no samples generated.");
     }
+}
+
+#[allow(non_snake_case)]
+pub fn interface_errors_rust_nosum(time_window_len : usize, Lambda_1 : f64,
+                    Lambda_2 : f64, a : f64, c : f64, dt : f64,
+                    M1 : usize, M2 : usize, h1 : Array1<f64>, h2 : Array1<f64>,
+                    D1 : Array1<f64>, D2 : Array1<f64>, dis : Discretization,
+                    number_samples : usize)
+    -> Array1<f64> {
+
+    let all_err : Vec<Array1<f64>> =
+        (1..number_samples+1).collect::<Vec<usize>>().par_iter()
+        .map(|seed| -> ndarray::ArrayBase<ndarray::OwnedRepr<f64>, ndarray::Dim<[usize; 1]>> {
+            let errors = match dis {
+                Discretization::FiniteVolumes => 
+                    interface_errors::<finite::Volumes>(time_window_len, *seed as u64,
+                        Lambda_1, Lambda_2, a, c, dt, M1, M2,
+                        &h1.view(), &h2.view(), &D1.view(), &D2.view()),
+                Discretization::FiniteDifferences =>
+                    interface_errors::<finite::Differences>(time_window_len, *seed as u64,
+                        Lambda_1, Lambda_2, a, c, dt, M1, M2,
+                        &h1.view(), &h2.view(), &D1.view(), &D2.view())
+            };
+            stack(Axis(0), &[errors[0].view(), errors[1].view(), errors[2].view()]).unwrap()})
+        .collect();
+    let NUMBER_ERRORS = 3;
+    let mut ret = Array::zeros(number_samples*NUMBER_ERRORS*time_window_len);
+    let mut first_index = 0;
+    for err in all_err {
+        let next_index = first_index + NUMBER_ERRORS*time_window_len;
+        ret.slice_mut(s![first_index..next_index]).assign(&err);
+        first_index += NUMBER_ERRORS*time_window_len;
+    }
+    ret
 }
 
 #[allow(non_snake_case)]
