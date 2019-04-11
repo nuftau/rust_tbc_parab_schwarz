@@ -92,6 +92,13 @@ pub fn cos<S, D>(x : &ArrayBase<S, D>) -> Array<f64, D>
     x.to_owned().map(|a| f64::cos(*a))
 }
 
+/// Same as np.cos(x)
+#[allow(dead_code)]
+pub fn abs<S, D>(x : &ArrayBase<S, D>) -> Array<f64, D> 
+    where S : Data<Elem=f64>, D : ndarray::Dimension {
+    x.to_owned().map(|a| f64::abs(*a))
+}
+
 /// Same as np.sin(x)
 #[allow(dead_code)]
 pub fn sin<S, D>(x : &ArrayBase<S, D>) -> Array<f64, D> 

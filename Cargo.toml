@@ -18,6 +18,3 @@ ndarray = "0.12"
 ndarray-rand = "0.9"
 rayon = "1.0"
 
-[dependencies.cpython]
-version = "0.2"
-features = ["extension-module"]
