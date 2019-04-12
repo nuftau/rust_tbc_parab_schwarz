@@ -240,9 +240,6 @@ fn interface_errors<T>(time_window_len : usize, _seed : u64, Lambda_1 : f64,
                             dirichlet, Lambda_1, false);
     let Y2 = T::precompute_Y(M2, h2, D2, a, c, dt, &f2,
                             neumann, Lambda_2, true);
-    let mut all_u1_nm1 = Array::zeros((time_window_len+1, M1));
-    let mut all_u2_nm1 = Array::zeros((time_window_len+1, M2));
-
     let mut all_u1_interface = Array::random(time_window_len,
                                                 Uniform::new_inclusive(-1.,1.));
     let mut all_phi1_interface = Array::random(time_window_len,
@@ -255,16 +252,19 @@ fn interface_errors<T>(time_window_len : usize, _seed : u64, Lambda_1 : f64,
                     Array::linspace(0., 0., 0) ];
 
     for k in 1..3 {
+        let mut all_u1_nm1 = Array::zeros(M1);
+        let mut all_u2_nm1 = Array::zeros(M2);
+
         for i in 0..time_window_len {
             let u1_interface : f64 = all_u1_interface[i];
             let phi1_interface : f64 = all_phi1_interface[i];
             let ret_tuple_integrate =
                 T::integrate_one_step(M2, h2, D2, a, c, dt, &f2,
                                       neumann, Lambda_2,
-                                      &all_u2_nm1.slice(s![i, ..]),
+                                      &all_u2_nm1.view(),
                                       u1_interface, phi1_interface,
                                       &Y2, true);
-            all_u2_nm1.slice_mut(s![i+1, ..]).assign(&ret_tuple_integrate.0);
+            all_u2_nm1.assign(&ret_tuple_integrate.0);
             all_u2_interface[i] = ret_tuple_integrate.1;
             all_phi2_interface[i] = ret_tuple_integrate.2;
         }
@@ -274,10 +274,10 @@ fn interface_errors<T>(time_window_len : usize, _seed : u64, Lambda_1 : f64,
             let phi2_interface :f64 = all_phi2_interface[i];
             let ret_tuple_integrate =
                 T::integrate_one_step(M1, h1, D1, a, c, dt, &f1,
-                                      neumann, Lambda_1, &all_u1_nm1.slice(s![i,..]),
+                                      neumann, Lambda_1, &all_u1_nm1.view(),
                                       u2_interface, phi2_interface,
                                       &Y1, false);
-            all_u1_nm1.slice_mut(s![i+1, ..]).assign(&ret_tuple_integrate.0);
+            all_u1_nm1.assign(&ret_tuple_integrate.0);
             all_u1_interface[i] = ret_tuple_integrate.1;
             all_phi1_interface[i] = ret_tuple_integrate.2;
         }
