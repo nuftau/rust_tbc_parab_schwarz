@@ -143,14 +143,13 @@ pub fn interface_errors_rust(time_window_len : usize, Lambda_1 : f64,
             stack(Axis(0), &[errors[0].view(), errors[1].view(), errors[2].view()]).unwrap()})
         .collect();
     let mut ret = Option::None;
-    use utils::linalg::abs;
     for err in all_err {
         if ret.is_some() {
             let mut value = ret.unwrap();
-            value += &abs(&err);
+            value += &utils::linalg::abs(&err);
             ret = Option::Some(value);
         } else {
-            ret = Some(abs(&err));
+            ret = Some(utils::linalg::abs(&err));
         }
     }
     if ret.is_some() {
