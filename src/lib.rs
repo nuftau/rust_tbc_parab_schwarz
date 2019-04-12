@@ -246,6 +246,8 @@ fn interface_errors<T>(time_window_len : usize, _seed : u64, Lambda_1 : f64,
     let mut all_u2_interface = Array1::zeros(time_window_len);
     let mut all_phi2_interface = Array1::zeros(time_window_len);
 
+    all_u1_interface[time_window_len - 1] /= 1000.;
+    all_phi1_interface[time_window_len - 1] /= 1000.;
     let mut ret = [all_u1_interface.to_owned(),
                     Array::linspace(0., 0., 0),
                     Array::linspace(0., 0., 0) ];
@@ -273,7 +275,7 @@ fn interface_errors<T>(time_window_len : usize, _seed : u64, Lambda_1 : f64,
             let phi2_interface :f64 = all_phi2_interface[i];
             let ret_tuple_integrate =
                 T::integrate_one_step(M1, h1, D1, a, c, dt, &f1,
-                                      neumann, Lambda_1, &all_u1_nm1.view(),
+                                      dirichlet, Lambda_1, &all_u1_nm1.view(),
                                       u2_interface, phi2_interface,
                                       &Y1, false);
             all_u1_nm1.assign(&ret_tuple_integrate.0);
