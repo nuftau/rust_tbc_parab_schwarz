@@ -112,28 +112,28 @@ if __name__ == "__main__":
     if len(sys.argv) == 1:
         print("ok. let's get some values")
         print(errors_raw(is_finite_differences=True,
-                   N=1000,
-                   Lambda_1=.6,
-                   Lambda_2=0.,
-                   a=0.,
-                   c=1e-10,
-                   dt=.1,
-                   M1=2000,
-                   M2=2000,
-                   number_seeds=10))
+                         N=1000,
+                         Lambda_1=.6,
+                         Lambda_2=0.,
+                         a=0.,
+                         c=1e-10,
+                         dt=.1,
+                         M1=2000,
+                         M2=2000, number_seeds=10))
     elif sys.argv[1] == "plotfft":
         import matplotlib.pyplot as plt
         errors_ret = errors_raw(is_finite_differences=True,
-                   N=1000,
-                   Lambda_1=.6,
-                   Lambda_2=0.,
-                   a=0.,
-                   c=1e-10,
-                   dt=.1,
-                   M1=200,
-                   M2=200,
-                   number_seeds=50)
-        plt.plot(np.mean(np.abs(np.fft.fftshift(np.fft.fft(errors_ret[:,0],
-            norm="ortho", axis=-1), axes=(-1,))), axis=0))
+                                N=100,
+                                Lambda_1=.6,
+                                Lambda_2=0.,
+                                a=0.,
+                                c=1e-10,
+                                dt=.1,
+                                M1=200,
+                                M2=200,
+                                number_seeds=50)
+        #plt.plot(np.mean(np.abs(np.fft.fftshift(np.fft.fft(errors_ret[:,0],
+        #    norm="ortho", axis=-1), axes=(-1,))), axis=0))
+        plt.plot(np.mean(np.abs(errors_ret[:,0]), axis=0))
         plt.show()
 
