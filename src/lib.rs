@@ -442,13 +442,17 @@ where
     let mut all_u2_interface = Array1::zeros(time_window_len);
     let mut all_phi2_interface = Array1::zeros(time_window_len);
 
-    all_u1_interface[time_window_len - 1] /= 1000.;
-    all_phi1_interface[time_window_len - 1] /= 1000.;
-    let mut ret = [
-        all_u1_interface.to_owned(),
-        Array::linspace(0., 0., 0),
-        Array::linspace(0., 0., 0),
-    ];
+    let multiplicateur = |x : f64| -> f64 {
+        -((x - 0.94*time_window_len as f64) 
+          / (time_window_len as f64/40.)).tanh() / 2. + 0.5
+    };
+    for i in 1..time_window_len {
+        all_u1_interface[i] *= multiplicateur(i as f64);
+        all_phi1_interface[i] *= multiplicateur(i as f64);
+    }
+    let mut ret = [all_u1_interface.to_owned(),
+                    Array::linspace(0., 0., 0),
+                    Array::linspace(0., 0., 0) ];
 
     for k in 1..3 {
         let mut all_u1_nm1 = Array::zeros(M1);
