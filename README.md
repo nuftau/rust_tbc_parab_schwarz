@@ -10,4 +10,5 @@ There may not be a lot of documentation, because the functions are directly tran
 In the same way, the module itself is not tested a lot because it can be directly tested against the python results.
 See the Python repository to see comparison between results of python and rust.
 
-This module was designed to be included in python code to compute the computationnaly-expensive task to integrate our model over time and extract the convergence rate of the Schwarz method. 
+This module was designed to be included in python code to compute the computationnaly-expensive task to integrate our model over time and extract the convergence rate of the Schwarz method. It was designed to solve only tridiagonal systems. Some discretizations are hence impossible to accelerate.
+
