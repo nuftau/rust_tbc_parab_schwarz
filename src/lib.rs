@@ -39,11 +39,13 @@ pub extern "C" fn rate(
     number_samples: usize,
 ) -> f64 {
     let dis = match is_finite_differences {
+        2 => Discretization::FiniteDifferencesNaiveNeumann,
         1 => Discretization::FiniteDifferences,
         0 => Discretization::FiniteVolumes,
         _ => Discretization::FiniteDifferences,
     };
     let sizes = match dis {
+        Discretization::FiniteDifferencesNaiveNeumann => (M1 - 1, M2 - 1, M1 - 1, M2 - 1),
         Discretization::FiniteDifferences => (M1 - 1, M2 - 1, M1 - 1, M2 - 1),
         Discretization::FiniteVolumes => (M1, M2, M1 + 1, M2 + 1),
     };
@@ -92,11 +94,13 @@ pub extern "C" fn full_interface_err(
     number_samples: usize,
 ) -> *const f64 {
     let dis = match is_finite_differences {
+        2 => Discretization::FiniteDifferencesNaiveNeumann,
         1 => Discretization::FiniteDifferences,
         0 => Discretization::FiniteVolumes,
         _ => Discretization::FiniteDifferences,
     };
     let sizes = match dis {
+        Discretization::FiniteDifferencesNaiveNeumann => (M1 - 1, M2 - 1, M1 - 1, M2 - 1),
         Discretization::FiniteDifferences => (M1 - 1, M2 - 1, M1 - 1, M2 - 1),
         Discretization::FiniteVolumes => (M1, M2, M1 + 1, M2 + 1),
     };
@@ -148,11 +152,13 @@ pub extern "C" fn interface_err(
     number_samples: usize,
 ) -> *const f64 {
     let dis = match is_finite_differences {
+        2 => Discretization::FiniteDifferencesNaiveNeumann,
         1 => Discretization::FiniteDifferences,
         0 => Discretization::FiniteVolumes,
         _ => Discretization::FiniteDifferences,
     };
     let sizes = match dis {
+        Discretization::FiniteDifferencesNaiveNeumann => (M1 - 1, M2 - 1, M1 - 1, M2 - 1),
         Discretization::FiniteDifferences => (M1 - 1, M2 - 1, M1 - 1, M2 - 1),
         Discretization::FiniteVolumes => (M1, M2, M1 + 1, M2 + 1),
     };
@@ -185,6 +191,7 @@ pub extern "C" fn interface_err(
 }
 
 pub enum Discretization {
+    FiniteDifferencesNaiveNeumann,
     FiniteDifferences,
     FiniteVolumes,
 }
@@ -228,6 +235,21 @@ pub fn interface_errors_rust(
                         &D2.view(),
                     ),
                     Discretization::FiniteDifferences => interface_errors::<finite::Differences>(
+                        time_window_len,
+                        *seed as u64,
+                        Lambda_1,
+                        Lambda_2,
+                        a,
+                        c,
+                        dt,
+                        M1,
+                        M2,
+                        &h1.view(),
+                        &h2.view(),
+                        &D1.view(),
+                        &D2.view(),
+                    ),
+                    Discretization::FiniteDifferencesNaiveNeumann => interface_errors::<finite::Differences>(
                         time_window_len,
                         *seed as u64,
                         Lambda_1,
@@ -308,6 +330,21 @@ pub fn interface_errors_rust_nosum(
                         &D2.view(),
                     ),
                     Discretization::FiniteDifferences => interface_errors::<finite::Differences>(
+                        time_window_len,
+                        *seed as u64,
+                        Lambda_1,
+                        Lambda_2,
+                        a,
+                        c,
+                        dt,
+                        M1,
+                        M2,
+                        &h1.view(),
+                        &h2.view(),
+                        &D1.view(),
+                        &D2.view(),
+                    ),
+                    Discretization::FiniteDifferencesNaiveNeumann => interface_errors::<finite::Differences_naive>(
                         time_window_len,
                         *seed as u64,
                         Lambda_1,
@@ -406,6 +443,28 @@ pub fn rate_rust(
                 norm(&errors[2]) / norm(&errors[1])
             })
             .sum(),
+        Discretization::FiniteDifferencesNaiveNeumann => (1..number_samples + 1)
+            .collect::<Vec<usize>>()
+            .par_iter()
+            .map(|seed| {
+                let errors = interface_errors::<finite::Differences_naive>(
+                    time_window_len,
+                    *seed as u64,
+                    Lambda_1,
+                    Lambda_2,
+                    a,
+                    c,
+                    dt,
+                    M1,
+                    M2,
+                    &h1.view(),
+                    &h2.view(),
+                    &D1.view(),
+                    &D2.view(),
+                );
+                norm(&errors[2]) / norm(&errors[1])
+            })
+            .sum(),
     };
     ret / number_samples as f64
 }
@@ -447,8 +506,8 @@ where
           / (time_window_len as f64/40.)).tanh() / 2. + 0.5
     };
     for i in 1..time_window_len {
-        all_u1_interface[i] *= multiplicateur(i as f64);
-        all_phi1_interface[i] *= multiplicateur(i as f64);
+        //all_u1_interface[i] *= multiplicateur(i as f64);
+        //all_phi1_interface[i] *= multiplicateur(i as f64);
     }
     let mut ret = [all_u1_interface.to_owned(),
                     Array::linspace(0., 0., 0),
